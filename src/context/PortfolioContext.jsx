@@ -15,7 +15,7 @@ const INITIAL_PORTFOLIO = {
   portfolioHistory: [],
   limitOrders: [],
   notifications: [
-    { id: 'welcome', title: 'Welcome to TradeX', message: 'Start your trading journey by exploring the market!', time: new Date().toISOString(), type: 'info', read: false }
+    { id: 'welcome', title: 'Welcome to SmartTrade', message: 'Start your trading journey by exploring the market!', time: new Date().toISOString(), type: 'info', read: false }
   ]
 };
 
