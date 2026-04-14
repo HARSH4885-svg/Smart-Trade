@@ -13,13 +13,38 @@ const INITIAL_PORTFOLIO = {
   transactions: [],
   watchlist: ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA"],
   portfolioHistory: [],
-  limitOrders: []
+  limitOrders: [],
+  notifications: [
+    { id: 'welcome', title: 'Welcome to TradeX', message: 'Start your trading journey by exploring the market!', time: new Date().toISOString(), type: 'info', read: false }
+  ]
 };
 
 export const PortfolioProvider = ({ children }) => {
   const { user, updateBalance } = useAuth();
   const [portfolio, setPortfolio] = useState(INITIAL_PORTFOLIO);
   const [loading, setLoading] = useState(true);
+
+  const addNotification = useCallback((notification) => {
+    if (!user) return;
+    const newNotification = {
+      id: Math.random().toString(36).substr(2, 9),
+      time: new Date().toISOString(),
+      read: false,
+      ...notification
+    };
+    
+    setPortfolio(prev => {
+      const updatedNotifications = [newNotification, ...(prev.notifications || [])].slice(0, 20);
+      updatePortfolio({ notifications: updatedNotifications });
+      return { ...prev, notifications: updatedNotifications };
+    });
+  }, [user]);
+
+  const markNotificationsRead = () => {
+    if (!user) return;
+    const updatedNotifications = (portfolio.notifications || []).map(n => ({ ...n, read: true }));
+    updatePortfolio({ notifications: updatedNotifications });
+  };
 
   useEffect(() => {
     if (!user) {
@@ -123,6 +148,12 @@ export const PortfolioProvider = ({ children }) => {
         transactions: [transaction, ...portfolio.transactions]
       });
 
+      addNotification({
+        title: 'Trade Executed',
+        message: `Successfully bought ${shares} shares of ${stockId} at ${price.toFixed(2)}`,
+        type: 'success'
+      });
+
       if (loanAmount > 0) {
         toast.success(`Margin Trade Executed! Borrowed ${loanAmount.toFixed(2)}`);
       }
@@ -177,6 +208,12 @@ export const PortfolioProvider = ({ children }) => {
         transactions: [transaction, ...portfolio.transactions]
       });
 
+      addNotification({
+        title: 'Trade Executed',
+        message: `Successfully sold ${shares} shares of ${stockId} at ${price.toFixed(2)}`,
+        type: 'info'
+      });
+
       if (repaymentAmount > 0) {
         toast.success(`Loan Repaid: ${repaymentAmount.toFixed(2)} (Interest: ${interest.toFixed(2)})`);
       }
@@ -194,6 +231,11 @@ export const PortfolioProvider = ({ children }) => {
 
       if (checkLiquidation(holding, stock.currentPrice)) {
         toast.error(`LIQUIDATION TRIGGERED: ${holding.stockId} position closed due to high risk.`);
+        addNotification({
+          title: 'Liquidation Alert',
+          message: `Your position in ${holding.stockId} was automatically liquidated due to high risk.`,
+          type: 'danger'
+        });
         executeTrade({
           type: 'SELL',
           stockId: holding.stockId,
@@ -202,7 +244,7 @@ export const PortfolioProvider = ({ children }) => {
         });
       }
     });
-  }, [user, loading, portfolio.holdings]);
+  }, [user, loading, portfolio.holdings, addNotification]);
 
   const addLimitOrder = (order) => {
     const newOrder = {
@@ -214,6 +256,11 @@ export const PortfolioProvider = ({ children }) => {
     
     const updatedOrders = [...(portfolio.limitOrders || []), newOrder];
     updatePortfolio({ limitOrders: updatedOrders });
+    addNotification({
+      title: 'Limit Order Placed',
+      message: `${order.type} order for ${order.shares} ${order.stockId} at ${order.targetPrice}`,
+      type: 'info'
+    });
   };
 
   const cancelLimitOrder = (orderId) => {
@@ -261,6 +308,12 @@ export const PortfolioProvider = ({ children }) => {
           price: currentPrice
         });
 
+        addNotification({
+          title: 'Limit Order Executed',
+          message: `Your ${order.type} order for ${order.stockId} was executed at ${currentPrice.toFixed(2)}`,
+          type: 'success'
+        });
+
         updatedOrders = updatedOrders.map(o => 
           o.id === order.id ? { ...o, status: 'EXECUTED', executedAt: new Date().toISOString() } : o
         );
@@ -271,7 +324,7 @@ export const PortfolioProvider = ({ children }) => {
     if (hasChanges) {
       updatePortfolio({ limitOrders: updatedOrders });
     }
-  }, [user, loading, portfolio.limitOrders, portfolio.holdings, executeTrade]);
+  }, [user, loading, portfolio.limitOrders, portfolio.holdings, executeTrade, addNotification]);
 
   const addToWatchlist = (stockId) => {
     if (!portfolio.watchlist.includes(stockId)) {
@@ -296,6 +349,7 @@ export const PortfolioProvider = ({ children }) => {
       watchlist: portfolio.watchlist,
       portfolioHistory: portfolio.portfolioHistory,
       limitOrders: portfolio.limitOrders || [],
+      notifications: portfolio.notifications || [],
       loading,
       addToWatchlist,
       removeFromWatchlist,
@@ -304,7 +358,8 @@ export const PortfolioProvider = ({ children }) => {
       addLimitOrder,
       cancelLimitOrder,
       checkLimitOrders,
-      checkLiquidationPositions
+      checkLiquidationPositions,
+      markNotificationsRead
     }}>
       {children}
     </PortfolioContext.Provider>

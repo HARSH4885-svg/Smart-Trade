@@ -12,16 +12,35 @@ import toast from 'react-hot-toast';
 import { SUPPORTED_CURRENCIES } from '../../constants';
 
 const Settings = () => {
-  const { user, resetAccount } = useAuth();
+  const { user, resetAccount, updateProfile } = useAuth();
   const { theme, toggleTheme, currency, setCurrency, forceMarketOpen, setForceMarketOpen } = useTheme();
   const { resetPortfolio } = usePortfolio();
   const [showResetConfirm, setShowResetConfirm] = React.useState(false);
+  const [displayName, setDisplayName] = React.useState(user?.name || '');
+  const [isSaving, setIsSaving] = React.useState(false);
 
   const handleReset = () => {
     resetAccount();
     resetPortfolio();
     setShowResetConfirm(false);
     toast.success('Portfolio reset successfully');
+  };
+
+  const handleSaveProfile = async () => {
+    if (!displayName.trim()) {
+      toast.error('Display name cannot be empty');
+      return;
+    }
+    
+    setIsSaving(true);
+    const result = await updateProfile({ name: displayName });
+    setIsSaving(false);
+
+    if (result.success) {
+      toast.success('Profile updated successfully');
+    } else {
+      toast.error(result.message || 'Failed to update profile');
+    }
   };
 
   return (
@@ -80,7 +99,8 @@ const Settings = () => {
               <input 
                 type="text" 
                 className="w-full bg-background border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                defaultValue={user?.name}
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
               />
             </div>
             <div className="space-y-1">
@@ -93,7 +113,13 @@ const Settings = () => {
               />
             </div>
           </div>
-          <button className="btn-primary px-6">Save Changes</button>
+          <button 
+            onClick={handleSaveProfile}
+            disabled={isSaving || displayName === user?.name}
+            className="btn-primary px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSaving ? 'Saving...' : 'Save Changes'}
+          </button>
         </div>
       </div>
 

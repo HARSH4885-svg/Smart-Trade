@@ -323,7 +323,7 @@ const StockDetail = () => {
 
       <div className="flex flex-1 overflow-hidden relative">
         {/* Main Chart Area */}
-        <div className="flex-1 flex flex-col min-w-0 bg-background relative">
+        <div className="flex-1 flex flex-col min-w-0 bg-background relative overflow-y-auto custom-scrollbar">
           {/* Chart Controls Overlay */}
           <div className="absolute top-4 left-4 z-10 flex items-center space-x-2">
             <div className="flex bg-surface/80 backdrop-blur-md rounded-xl p-1 border border-border shadow-xl">
@@ -339,6 +339,14 @@ const StockDetail = () => {
                   {t}
                 </button>
               ))}
+              <div className="w-px h-4 bg-border mx-1 self-center"></div>
+              <button 
+                onClick={() => document.getElementById('news-section')?.scrollIntoView({ behavior: 'smooth' })}
+                className="px-3 py-1.5 text-xs font-black rounded-lg text-text-secondary hover:text-primary transition-all uppercase tracking-tighter flex items-center space-x-1"
+              >
+                <Clock size={12} />
+                <span>News</span>
+              </button>
             </div>
             
             <div className="flex bg-surface/80 backdrop-blur-md rounded-xl p-1 border border-border shadow-xl opacity-40 hover:opacity-100 transition-opacity group/toolbar">
@@ -407,7 +415,7 @@ const StockDetail = () => {
           )}
 
           {/* Massive Chart */}
-          <div className="flex-1 relative">
+          <div className="min-h-[600px] flex-1 relative">
             {isLoadingData && (
               <div className="absolute inset-0 z-10 bg-background/50 backdrop-blur-sm flex items-center justify-center">
                 <Skeleton className="w-full h-full" />
@@ -422,7 +430,7 @@ const StockDetail = () => {
           </div>
 
           {/* Bottom Info Bar */}
-          <div className="h-12 border-t border-border bg-surface/30 backdrop-blur-sm flex items-center justify-between px-6">
+          <div className="h-12 border-t border-border bg-surface/30 backdrop-blur-sm flex items-center justify-between px-6 shrink-0">
             <div className="flex items-center space-x-6">
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 rounded-full bg-success animate-pulse"></div>
@@ -437,6 +445,79 @@ const StockDetail = () => {
             <div className="flex items-center space-x-4">
               <span className="text-xs font-black text-text-secondary uppercase tracking-widest">Resolution: {timeRange === '1D' ? '5m' : '1D'}</span>
               <span className="text-xs font-black text-text-secondary uppercase tracking-widest">TZ: UTC-7</span>
+            </div>
+          </div>
+
+          {/* New Prominent News Section */}
+          <div id="news-section" className="p-8 border-t border-border bg-surface/10">
+            <div className="max-w-5xl mx-auto space-y-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-black uppercase tracking-tighter">Latest News & Analysis</h2>
+                  <p className="text-sm text-text-secondary font-medium">Real-time updates and market sentiment for {stock.id}</p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs font-bold text-text-secondary uppercase tracking-widest">Source:</span>
+                  <span className="badge badge-primary">Finnhub Real-time</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {news.length > 0 ? (
+                  news.map((item) => (
+                    <div key={item.id} className="card group hover:border-primary/30 transition-all cursor-pointer">
+                      <div className="flex flex-col h-full">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-[10px] font-black bg-primary/10 text-primary px-2 py-0.5 rounded uppercase tracking-widest">
+                              {item.source}
+                            </span>
+                            <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">
+                              {formatDate(item.timestamp)}
+                            </span>
+                          </div>
+                          <span className={cn(
+                            "badge text-[10px] font-black uppercase tracking-widest",
+                            item.sentiment === 'positive' ? "badge-success" : 
+                            item.sentiment === 'negative' ? "badge-danger" : "bg-border/20 text-text-secondary"
+                          )}>
+                            {item.sentiment}
+                          </span>
+                        </div>
+                        <h3 className="text-lg font-bold group-hover:text-primary transition-colors line-clamp-2 mb-3 leading-tight">
+                          {item.headline}
+                        </h3>
+                        <p className="text-sm text-text-secondary line-clamp-3 mb-4 flex-1">
+                          {item.summary || `Market analysis and real-time updates regarding ${stock.name} (${stock.id}) performance in the current trading session.`}
+                        </p>
+                        <div className="flex items-center justify-between pt-4 border-t border-border/50">
+                          <div className="flex items-center space-x-4">
+                            <div className="flex items-center space-x-1 text-xs font-bold text-text-secondary">
+                              <Activity size={14} />
+                              <span>Impact: {item.sentimentScore > 0 ? 'High' : 'Moderate'}</span>
+                            </div>
+                          </div>
+                          <a 
+                            href={item.url || "#"} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-xs font-black text-primary uppercase tracking-widest flex items-center space-x-1 group/link"
+                          >
+                            <span>Read Full Story</span>
+                            <ChevronRight size={14} className="group-hover/link:translate-x-1 transition-transform" />
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-full py-20 text-center border border-dashed border-border rounded-3xl">
+                    <Globe size={48} className="mx-auto mb-4 text-border" />
+                    <h3 className="text-lg font-bold text-text-secondary uppercase tracking-widest">No Recent News Found</h3>
+                    <p className="text-sm text-text-secondary mt-2">We couldn't find any recent news for {stock.id}. Check back later.</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

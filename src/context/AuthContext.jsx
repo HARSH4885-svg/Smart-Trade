@@ -56,60 +56,57 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let unsubDoc = null;
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (unsubDoc) {
         unsubDoc();
         unsubDoc = null;
       }
 
       if (user) {
-        const fetchUserData = async () => {
-          try {
-            const userDocRef = doc(db, 'users', user.uid);
-            const userDoc = await getDoc(userDocRef);
-            
-            if (userDoc.exists()) {
+        try {
+          const userDocRef = doc(db, 'users', user.uid);
+          const userDoc = await getDoc(userDocRef);
+          
+          if (userDoc.exists()) {
+            setCurrentUser({
+              uid: user.uid,
+              ...userDoc.data()
+            });
+          } else {
+            const newUser = {
+              uid: user.uid,
+              name: user.displayName || 'User',
+              email: user.email || '',
+              phoneNumber: user.phoneNumber || '',
+              balance: INITIAL_BALANCE,
+              joinDate: new Date().toISOString(),
+              fundTransactions: []
+            };
+            await setDoc(userDocRef, newUser);
+            setCurrentUser(newUser);
+          }
+
+          // Set up real-time listener
+          unsubDoc = onSnapshot(userDocRef, (doc) => {
+            if (doc.exists()) {
               setCurrentUser({
                 uid: user.uid,
-                ...userDoc.data()
+                ...doc.data()
               });
-            } else {
-              const newUser = {
-                uid: user.uid,
-                name: user.displayName || 'User',
-                email: user.email || '',
-                phoneNumber: user.phoneNumber || '',
-                balance: INITIAL_BALANCE,
-                joinDate: new Date().toISOString(),
-                fundTransactions: []
-              };
-              await setDoc(userDocRef, newUser);
-              setCurrentUser(newUser);
             }
-
-            // Set up real-time listener
-            unsubDoc = onSnapshot(userDocRef, (doc) => {
-              if (doc.exists()) {
-                setCurrentUser({
-                  uid: user.uid,
-                  ...doc.data()
-                });
-              }
-            }, (err) => {
-              if (err.code === 'permission-denied') {
-                console.warn("Permission denied for user document. This is expected during sign-out.");
-                return;
-              }
-              console.error("Firestore Snapshot Error:", err);
-            });
-          } catch (err) {
-            console.error("Auth Initialization Error:", err);
-            setError(err.message);
-          } finally {
-            setLoading(false);
-          }
-        };
-        fetchUserData();
+          }, (err) => {
+            if (err.code === 'permission-denied') {
+              console.warn("Permission denied for user document. This is expected during sign-out.");
+              return;
+            }
+            console.error("Firestore Snapshot Error:", err);
+          });
+        } catch (err) {
+          console.error("Auth Initialization Error:", err);
+          setError(err.message);
+        } finally {
+          setLoading(false);
+        }
       } else {
         setCurrentUser(null);
         setLoading(false);
@@ -124,7 +121,11 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const { user } = await signInWithEmailAndPassword(auth, email, password);
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        setCurrentUser({ uid: user.uid, ...userDoc.data() });
+      }
       return { success: true };
     } catch (error) {
       return { success: false, message: error.message };
@@ -146,6 +147,7 @@ export const AuthProvider = ({ children }) => {
       };
       try {
         await setDoc(doc(db, 'users', user.uid), newUser);
+        setCurrentUser(newUser);
       } catch (error) {
         handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}`);
       }
@@ -157,7 +159,25 @@ export const AuthProvider = ({ children }) => {
 
   const signInWithGoogle = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      const { user } = await signInWithPopup(auth, googleProvider);
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (userDoc.exists()) {
+        setCurrentUser({ uid: user.uid, ...userDoc.data() });
+      } else {
+        const newUser = {
+          uid: user.uid,
+          name: user.displayName || 'User',
+          email: user.email || '',
+          phoneNumber: user.phoneNumber || '',
+          balance: INITIAL_BALANCE,
+          joinDate: new Date().toISOString(),
+          fundTransactions: []
+        };
+        await setDoc(userDocRef, newUser);
+        setCurrentUser(newUser);
+      }
       return { success: true };
     } catch (error) {
       return { success: false, message: error.message };
@@ -238,6 +258,18 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateProfileData = async (data) => {
+    if (!currentUser) return;
+    
+    try {
+      await updateDoc(doc(db, 'users', currentUser.uid), data);
+      return { success: true };
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${currentUser.uid}`);
+      return { success: false, message: error.message };
+    }
+  };
+
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -267,7 +299,8 @@ export const AuthProvider = ({ children }) => {
       sendOtp,
       verifyOtp,
       updateBalance,
-      resetAccount
+      resetAccount,
+      updateProfile: updateProfileData
     }}>
       {!loading && children}
     </AuthContext.Provider>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useMarket } from '../../context/MarketContext';
+import { usePortfolio } from '../../context/PortfolioContext';
 import { Bell, Search, User, Moon, Sun, Wallet, LogOut, Settings, Shield, ArrowLeft, Activity } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
@@ -11,19 +12,23 @@ const Navbar = () => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { dataSource, marketError } = useMarket();
-  const { formatCurrency } = useFormatters();
+  const { notifications, markNotificationsRead } = usePortfolio();
+  const { formatCurrency, formatDate } = useFormatters();
   const location = useLocation();
   const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   const isHome = location.pathname === '/';
+  const unreadCount = notifications.filter(n => !n.read).length;
 
-  const notifications = [
-    { id: 1, title: 'Market Alert', message: `NVDA reached your target price of ${formatCurrency(140)}`, time: '2m ago', type: 'success' },
-    { id: 2, title: 'Portfolio Update', message: 'Your portfolio is up 5.2% today!', time: '1h ago', type: 'info' },
-    { id: 3, title: 'Security', message: 'New login detected from Chrome on Windows', time: '3h ago', type: 'warning' },
-  ];
+  const handleToggleNotifications = () => {
+    if (!showNotifications && unreadCount > 0) {
+      markNotificationsRead();
+    }
+    setShowNotifications(!showNotifications);
+    setShowUserMenu(false);
+  };
 
   return (
     <nav className="h-16 border-b border-border bg-surface/50 backdrop-blur-md sticky top-0 z-40 px-4 flex items-center justify-between">
@@ -82,32 +87,52 @@ const Navbar = () => {
 
         <div className="relative">
           <button 
-            onClick={() => {
-              setShowNotifications(!showNotifications);
-              setShowUserMenu(false);
-            }}
+            onClick={handleToggleNotifications}
             className="p-2 hover:bg-border/50 rounded-full transition-colors text-text-secondary relative"
           >
             <Bell size={20} />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-danger rounded-full border-2 border-surface"></span>
+            {unreadCount > 0 && (
+              <span className="absolute top-2 right-2 w-2 h-2 bg-danger rounded-full border-2 border-surface"></span>
+            )}
           </button>
 
           {showNotifications && (
             <div className="absolute right-0 mt-2 w-80 bg-surface border border-border rounded-xl shadow-2xl z-50 overflow-hidden">
               <div className="p-4 border-b border-border flex justify-between items-center">
                 <h4 className="font-bold text-base">Notifications</h4>
-                <button className="text-xs text-primary font-bold uppercase tracking-widest">Mark all read</button>
+                {unreadCount > 0 && (
+                  <button 
+                    onClick={markNotificationsRead}
+                    className="text-xs text-primary font-bold uppercase tracking-widest"
+                  >
+                    Mark all read
+                  </button>
+                )}
               </div>
               <div className="max-h-96 overflow-auto">
-                {notifications.map(n => (
-                  <div key={n.id} className="p-4 hover:bg-border/20 border-b border-border last:border-0 transition-colors cursor-pointer">
-                    <div className="flex justify-between items-start mb-1">
-                      <p className="text-base font-bold">{n.title}</p>
-                      <span className="text-xs text-text-secondary">{n.time}</span>
+                {notifications.length > 0 ? (
+                  notifications.map(n => (
+                    <div key={n.id} className={cn(
+                      "p-4 hover:bg-border/20 border-b border-border last:border-0 transition-colors cursor-pointer relative",
+                      !n.read && "bg-primary/5"
+                    )}>
+                      {!n.read && (
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
+                      )}
+                      <div className="flex justify-between items-start mb-1">
+                        <p className={cn("text-base font-bold", !n.read ? "text-text-primary" : "text-text-secondary")}>
+                          {n.title}
+                        </p>
+                        <span className="text-[10px] text-text-secondary font-medium uppercase">{formatDate(n.time)}</span>
+                      </div>
+                      <p className="text-sm text-text-secondary leading-relaxed">{n.message}</p>
                     </div>
-                    <p className="text-sm text-text-secondary leading-relaxed">{n.message}</p>
+                  ))
+                ) : (
+                  <div className="p-8 text-center text-text-secondary italic text-sm">
+                    No notifications yet.
                   </div>
-                ))}
+                )}
               </div>
               <div className="p-3 bg-background text-center">
                 <button className="text-xs text-text-secondary hover:text-text-primary transition-colors">View all notifications</button>
