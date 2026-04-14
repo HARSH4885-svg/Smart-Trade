@@ -49,9 +49,23 @@ export const getStockPrediction = async (stockData, history) => {
   const cached = getFromCache(cacheKey);
   if (cached) return cached;
 
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 1500));
+  try {
+    const response = await fetch('/api/ai/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stockData, history })
+    });
 
+    if (response.ok) {
+      const result = await response.json();
+      saveToCache(cacheKey, result);
+      return result;
+    }
+  } catch (error) {
+    console.warn("AI Prediction failed, using mock data:", error);
+  }
+
+  // Mock Fallback
   const trends = ["upward", "downward", "sideways"];
   const recommendations = ["Strong Buy", "Buy", "Hold", "Sell", "Strong Sell"];
   const riskScores = ["Low", "Medium", "High"];
@@ -81,8 +95,8 @@ export const getStockPrediction = async (stockData, history) => {
     recommendation: recommendations[Math.floor(Math.random() * recommendations.length)],
     riskScore: riskScores[Math.floor(Math.random() * riskScores.length)],
     predictions,
-    author: "SmartTrade Engine",
-    analysis: `${stockData.name} (${stockData.id}) is showing ${trend} momentum in the ${stockData.sector} sector. Based on recent volume and price action, we expect a ${trend} move over the next week. The risk profile is ${riskScores[Math.floor(Math.random() * riskScores.length)]} given current market volatility.`
+    author: "SmartTrade Engine (Simulated)",
+    analysis: `${stockData.name} (${stockData.id}) is showing ${trend} momentum. (Note: AI Service not configured, using simulated analysis).`
   };
 
   saveToCache(cacheKey, result);
@@ -94,19 +108,34 @@ export const getMarketOutlook = async (stocks) => {
   const cached = getFromCache(cacheKey);
   if (cached) return cached;
 
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  try {
+    const response = await fetch('/api/ai/outlook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stocks })
+    });
 
+    if (response.ok) {
+      const result = await response.json();
+      saveToCache(cacheKey, result);
+      return result;
+    }
+  } catch (error) {
+    console.warn("AI Outlook failed, using mock data:", error);
+  }
+
+  // Mock Fallback
   const sentiments = ["Bullish", "Bearish", "Neutral"];
   const sentiment = sentiments[Math.floor(Math.random() * sentiments.length)];
   
   const result = {
     sentiment,
-    summary: `The market is currently in a ${sentiment.toLowerCase()} phase. Investors are closely watching interest rate decisions and corporate earnings reports which are driving the current volatility.`,
+    summary: `The market is currently in a ${sentiment.toLowerCase()} phase. (Note: AI Service not configured, using simulated analysis).`,
     topSectors: ["Technology", "Energy", "Healthcare"].sort(() => 0.5 - Math.random()).slice(0, 2),
-    risks: ["Inflation concerns", "Geopolitical tension", "Supply chain issues"],
-    opportunities: ["AI integration", "Green energy transition", "Undervalued tech stocks"],
+    risks: ["Inflation concerns", "Geopolitical tension"],
+    opportunities: ["AI integration", "Green energy"],
     aiScore: Math.floor(Math.random() * 100),
-    proTip: "Consider rebalancing your portfolio to include more defensive stocks if volatility persists."
+    proTip: "Consider rebalancing your portfolio if volatility persists."
   };
 
   saveToCache(cacheKey, result);
@@ -114,8 +143,21 @@ export const getMarketOutlook = async (stocks) => {
 };
 
 export const analyzeNewsSentiment = async (headlines) => {
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  try {
+    const response = await fetch('/api/ai/sentiment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ headlines })
+    });
 
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (error) {
+    console.warn("AI Sentiment failed, using mock data:", error);
+  }
+
+  // Mock Fallback
   const results = headlines.map(headline => {
     const score = (Math.random() * 2) - 1;
     const sentiment = score > 0.2 ? "positive" : score < -0.2 ? "negative" : "neutral";
@@ -124,7 +166,7 @@ export const analyzeNewsSentiment = async (headlines) => {
       headline,
       sentiment,
       score: parseFloat(score.toFixed(2)),
-      explanation: `This headline suggests a ${sentiment} impact on the related assets due to market expectations.`
+      explanation: `Simulated analysis: This headline suggests a ${sentiment} impact.`
     };
   });
 

@@ -1,22 +1,55 @@
 import express from "express";
 import dotenv from "dotenv";
+import OpenAI from "openai";
 import { stocks as mockStocks } from "../src/data/stocks.js";
 
 dotenv.config();
 
 const app = express();
+app.use(express.json());
+
+const isPlaceholder = (key: string | undefined) => {
+  if (!key) return true;
+  const k = key.trim().toLowerCase();
+  return k === "" || k === "undefined" || k === "null" || k.includes("your_api_key") || k.includes("placeholder");
+};
+
+// Helper to get OpenRouter client
+const getOpenRouter = () => {
+  // Check all possible locations for the key
+  const apiKey = process.env.OPENROUTER_API_KEY || 
+                 process.env.LLAMA_API_KEY || 
+                 process.env.GEMINI_API_KEY;
+
+  if (isPlaceholder(apiKey)) {
+    console.log("⚠️ AI Service: No valid API key found in environment variables.");
+    return null;
+  }
+  
+  const trimmedKey = apiKey?.trim();
+  
+  // Basic validation of the key format for OpenRouter (usually starts with sk-or-)
+  if (trimmedKey && !trimmedKey.startsWith('sk-or-') && !trimmedKey.startsWith('sk-')) {
+    console.warn("⚠️ AI Service: API key does not look like a standard OpenRouter or OpenAI key.");
+  }
+
+  return new OpenAI({
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey: trimmedKey,
+    defaultHeaders: {
+      "HTTP-Referer": "https://smarttrade.platform",
+      "X-Title": "SmartTrade",
+    }
+  });
+};
+
+const AI_MODEL = "meta-llama/llama-3.3-70b-instruct";
 
 // Simple in-memory cache for stock quotes
 const quoteCache = new Map<string, { data: any, timestamp: number }>();
 const CACHE_TTL = 60 * 1000; // 1 minute cache
 
 let isApiKeyInvalid = false;
-
-const isPlaceholder = (key: string | undefined) => {
-  if (!key) return true;
-  const k = key.toLowerCase();
-  return k === "" || k.includes("your_api_key") || k.includes("placeholder");
-};
 
 // Global error handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -217,6 +250,116 @@ app.get("/api/stocks/:symbol/history", async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch history" });
+  }
+});
+
+// AI Analysis Routes
+app.post("/api/ai/predict", async (req, res) => {
+  const { stockData, history } = req.body;
+  const aiClient = getOpenRouter();
+
+  if (!aiClient) {
+    return res.status(503).json({ error: "AI Service not configured" });
+  }
+
+  try {
+    const prompt = `Analyze ${stockData.name} (${stockData.symbol}). Current Price: ${stockData.currentPrice}. 
+    Recent History: ${JSON.stringify(history.slice(-5))}.
+    Provide a 7-day price prediction, trend analysis, confidence score (0-100), recommendation (Buy/Sell/Hold), and risk score.
+    Return ONLY a JSON object with this structure:
+    {
+      "trend": "upward/downward/sideways",
+      "confidence": number,
+      "recommendation": "Strong Buy/Buy/Hold/Sell/Strong Sell",
+      "riskScore": "Low/Medium/High",
+      "predictions": [{"date": "YYYY-MM-DD", "price": number}],
+      "analysis": "string"
+    }`;
+
+    const completion = await aiClient.chat.completions.create({
+      model: AI_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" }
+    });
+
+    const result = JSON.parse(completion.choices[0].message.content || "{}");
+    res.json(result);
+  } catch (error) {
+    console.error("AI Prediction Error:", error);
+    res.status(500).json({ error: "AI Analysis failed" });
+  }
+});
+
+app.post("/api/ai/outlook", async (req, res) => {
+  const { stocks } = req.body;
+  const aiClient = getOpenRouter();
+
+  if (!aiClient) {
+    return res.status(503).json({ error: "AI Service not configured" });
+  }
+
+  try {
+    const prompt = `Provide a market outlook based on these stocks: ${stocks.map((s: any) => s.symbol).join(", ")}.
+    Include overall sentiment, a summary, top sectors, risks, opportunities, an AI market score (0-100), and a pro-tip.
+    Return ONLY a JSON object with this structure:
+    {
+      "sentiment": "Bullish/Bearish/Neutral",
+      "summary": "string",
+      "topSectors": ["string"],
+      "risks": ["string"],
+      "opportunities": ["string"],
+      "aiScore": number,
+      "proTip": "string"
+    }`;
+
+    const completion = await aiClient.chat.completions.create({
+      model: AI_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" }
+    });
+
+    const result = JSON.parse(completion.choices[0].message.content || "{}");
+    res.json(result);
+  } catch (error) {
+    console.error("AI Outlook Error:", error);
+    res.status(500).json({ error: "AI Outlook failed" });
+  }
+});
+
+app.post("/api/ai/sentiment", async (req, res) => {
+  const { headlines } = req.body;
+  const aiClient = getOpenRouter();
+
+  if (!aiClient) {
+    return res.status(503).json({ error: "AI Service not configured" });
+  }
+
+  try {
+    const prompt = `Analyze the sentiment of these news headlines: ${JSON.stringify(headlines)}.
+    For each headline, provide a sentiment (positive/negative/neutral), a score (-1 to 1), and a brief explanation.
+    Return ONLY a JSON object with this structure:
+    {
+      "results": [
+        {
+          "headline": "string",
+          "sentiment": "positive/negative/neutral",
+          "score": number,
+          "explanation": "string"
+        }
+      ]
+    }`;
+
+    const completion = await aiClient.chat.completions.create({
+      model: AI_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" }
+    });
+
+    const result = JSON.parse(completion.choices[0].message.content || "{}");
+    res.json(result);
+  } catch (error) {
+    console.error("AI Sentiment Error:", error);
+    res.status(500).json({ error: "AI Sentiment analysis failed" });
   }
 });
 
