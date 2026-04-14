@@ -105,7 +105,8 @@ export const getMarketOutlook = async (stocks) => {
     topSectors: ["Technology", "Energy", "Healthcare"].sort(() => 0.5 - Math.random()).slice(0, 2),
     risks: ["Inflation concerns", "Geopolitical tension", "Supply chain issues"],
     opportunities: ["AI integration", "Green energy transition", "Undervalued tech stocks"],
-    aiScore: Math.floor(Math.random() * 100)
+    aiScore: Math.floor(Math.random() * 100),
+    proTip: "Consider rebalancing your portfolio to include more defensive stocks if volatility persists."
   };
 
   saveToCache(cacheKey, result);

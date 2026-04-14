@@ -647,7 +647,13 @@ const Dashboard = () => {
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-bold text-text-secondary uppercase tracking-widest">Overall Mood</span>
-                  <span className="badge badge-success">Bullish</span>
+                  <span className={cn(
+                    "badge",
+                    marketOutlook?.sentiment === 'Bullish' ? "badge-success" : 
+                    marketOutlook?.sentiment === 'Bearish' ? "badge-danger" : "bg-warning/10 text-warning border-warning/20"
+                  )}>
+                    {marketOutlook?.sentiment || 'Neutral'}
+                  </span>
                 </div>
                 <div className="space-y-3">
                   <div className="flex justify-between text-xs font-black uppercase tracking-widest">
@@ -655,9 +661,14 @@ const Dashboard = () => {
                     <span className="text-success">Greed</span>
                   </div>
                   <div className="h-4 bg-background border border-border rounded-full overflow-hidden p-0.5">
-                    <div className="h-full bg-gradient-to-r from-danger via-warning to-success rounded-full" style={{ width: '72%' }}></div>
+                    <div 
+                      className="h-full bg-gradient-to-r from-danger via-warning to-success rounded-full transition-all duration-1000" 
+                      style={{ width: `${marketOutlook?.aiScore || 50}%` }}
+                    ></div>
                   </div>
-                  <p className="text-center text-xs font-black text-text-secondary uppercase tracking-widest mt-2">Index Score: 72</p>
+                  <p className="text-center text-xs font-black text-text-secondary uppercase tracking-widest mt-2">
+                    Index Score: {marketOutlook?.aiScore || 50}
+                  </p>
                 </div>
               </div>
             </div>
@@ -669,7 +680,9 @@ const Dashboard = () => {
                 </div>
                 <div>
                   <p className="text-xs font-black uppercase tracking-widest text-primary">Pro Tip</p>
-                  <p className="text-[12px] text-text-secondary font-medium leading-tight mt-0.5">Diversify your tech holdings with some energy stocks to reduce volatility.</p>
+                  <p className="text-[12px] text-text-secondary font-medium leading-tight mt-0.5">
+                    {marketOutlook?.proTip || "Diversify your tech holdings with some energy stocks to reduce volatility."}
+                  </p>
                 </div>
               </div>
             </div>
